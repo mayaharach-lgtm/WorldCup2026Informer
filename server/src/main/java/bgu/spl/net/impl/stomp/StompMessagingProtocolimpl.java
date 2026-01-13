@@ -42,6 +42,8 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol <Stomp
             if (destination != null) {
                 connections.send(destination,message);
                 checkAndSendReceipt(message);
+                String dest = message.GetHeader("destination");
+                System.out.println("DEBUG: Received SEND to destination: [" + dest + "]");
             }
         }
     
@@ -121,9 +123,8 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol <Stomp
         if (receiptId != null) {
             errorHeaders.put("receipt-id", receiptId);
         }
-
-    connections.send(connectionId, new StompFrame("ERROR", errorHeaders, "The error message: " + errorMessage));
-    this.shouldTerminate=true;
+        connections.send(connectionId, new StompFrame("ERROR", errorHeaders, "The error message: " + errorMessage));
+        this.shouldTerminate=true;
     }
 
     private void checkAndSendReceipt(StompFrame frame) {

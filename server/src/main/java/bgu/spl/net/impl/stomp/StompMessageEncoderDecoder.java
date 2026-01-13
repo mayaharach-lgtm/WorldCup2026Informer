@@ -18,10 +18,10 @@ public class StompMessageEncoderDecoder implements MessageEncoderDecoder<StompFr
         }
 
         String fullFrame = popString();
-        String[] lines = fullFrame.split("\n");
+        String[] lines = fullFrame.split("\n", -1);;
         if (lines.length == 0) 
             return null;
-        String command = lines[0]; 
+        String command = lines[0].trim();
         Map<String, String> headers = new HashMap<>();
         int i = 1;
         while (i < lines.length && !lines[i].isEmpty()) {

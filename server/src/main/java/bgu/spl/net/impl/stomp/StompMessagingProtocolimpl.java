@@ -10,7 +10,7 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol <Stomp
     
     private boolean shouldTerminate = false; 
     private int connectionId;
-    private Connections <StompFrame> connections;
+    private ConnectionsImpl <StompFrame> connections;
     private boolean loggedIn = false;
     private String userName=null;
     private final Map<String, String> subIdToChannel = new HashMap<>();
@@ -18,14 +18,13 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol <Stomp
     @Override
     public void start(int connectionId, Connections<StompFrame> connections) {
         this.connectionId = connectionId;
-        this.connections = connections;
+        this.connections = (ConnectionsImpl<StompFrame>) connections;
     }
     
     @Override
-    public StompFrame process(StompFrame message){
+    public void process(StompFrame message){
         if (!loggedIn && !message.getCommand().equals("CONNECT")) {
         sendError("You must be logged in to perform this action", message);
-        return null;
         }
         if (message.getCommand().equals("DISCONNECT")){
             shouldTerminate = true;
@@ -39,12 +38,17 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol <Stomp
         }
         else if(message.getCommand().equals("SEND")){
             String destination = message.GetHeader("destination");
-            if (destination != null) {
-                connections.send(destination,message);
-                checkAndSendReceipt(message);
-                String dest = message.GetHeader("destination");
-                System.out.println("DEBUG: Received SEND to destination: [" + dest + "]");
+            if (destination == null) {
+                sendError("Missing destination header", message);
             }
+            if (!(connections).isSubscribed(connectionId, destination)) {
+                sendError("User not subscribed to topic", message);
+            }
+            connections.send(destination,message);
+            checkAndSendReceipt(message);
+            String dest = message.GetHeader("destination");
+            System.out.println("DEBUG: Received SEND to destination: [" + dest + "]");  
+            
         }
     
         else if(message.getCommand().equals("SUBSCRIBE")){
@@ -70,9 +74,8 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol <Stomp
             String username = message.GetHeader("login");
             String password = message.GetHeader("passcode");
             if (username == null || password == null) {
-                System.out.println("Login or passcode missing");
-                return null;
-            }
+                sendError("Missing login or passcode", message);
+            }   
             //if exists, get password from database
             ConnectionsImpl<StompFrame> conn = (ConnectionsImpl<StompFrame>) connections;
             User user = conn.getUser(username);
@@ -94,7 +97,6 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol <Stomp
                 loginSuccess(username, message);
             }
         }
-        return null;
     }
 
     @Override
@@ -125,6 +127,7 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol <Stomp
         }
         connections.send(connectionId, new StompFrame("ERROR", errorHeaders, "The error message: " + errorMessage));
         this.shouldTerminate=true;
+        connections.disconnect(connectionId);
     }
 
     private void checkAndSendReceipt(StompFrame frame) {

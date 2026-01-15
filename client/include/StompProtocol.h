@@ -29,12 +29,18 @@ public:
         return "CONNECT\naccept-version:1.2\nhost:" + host + "\nlogin:" + user + "\npasscode:" + pass + "\n\n";
     }
 
+    std::string StompProtocol::createDisconnectFrame() {
+        std::string frame = "DISCONNECT\n";
+        frame += "receipt:" + std::to_string(receiptCounter) + "\n";
+        frame += "\n"; 
+        return frame;
+    }
+
     // Parses keyboard input and returns a vector of STOMP frames to send
     std::vector<std::string> processInput(std::string input) {
         std::vector<std::string> frames;
         std::stringstream ss(input);
         std::string cmd; ss >> cmd;
-
         if (cmd == "join") {
             // SUBSCRIBE command 
             std::string game; ss >> game;

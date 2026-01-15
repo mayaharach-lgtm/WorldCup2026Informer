@@ -92,5 +92,10 @@ public class ConnectionsImpl <T> implements Connections <T>{
     public void addUser(String username, String password) {
         users.put(username, new User(username, password));
     }
+
+    public boolean isSubscribed(int connectionId, String channel) {
+        Map<Integer, String> subs = channelToSubscribers.get(channel);
+        return subs != null && subs.containsKey(connectionId);
+    }
     
 }   

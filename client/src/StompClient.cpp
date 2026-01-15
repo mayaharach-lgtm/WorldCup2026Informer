@@ -141,9 +141,12 @@ int main(int argc, char *argv[]) {
                 logoutFrame = protocol.createDisconnectFrame();
             }
 
-            // Best effort send
             handler->sendFrameAscii(logoutFrame, '\0');
 
+            std::cout << "Waiting for receipt to logout..." << std::endl;
+            while (connected) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
             safeDisconnect();
             std::cout << "Logged out." << std::endl;
         }

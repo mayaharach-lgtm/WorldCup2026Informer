@@ -27,8 +27,8 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol <Stomp
         sendError("You must be logged in to perform this action", message);
         }
         if (message.getCommand().equals("DISCONNECT")){
-            shouldTerminate = true;
-            checkAndSendReceipt(message); 
+            checkAndSendReceipt(message);
+            shouldTerminate = true; 
             ConnectionsImpl<StompFrame> conn = (ConnectionsImpl<StompFrame>) connections;
             User user = conn.getUser(this.userName);
             if (user != null) {

@@ -138,11 +138,11 @@ public:
                 outFile << "Game event reports:\n";
                 auto sortedEvents = data.events;
                std::sort(sortedEvents.begin(), sortedEvents.end(),
-                        [](const EventLog& a, const EventLog& b) {
-                            if (a.before_halftime != b.before_halftime)
-                                return a.before_halftime > b.before_halftime; 
-                            return a.time < b.time;
-                        });
+                [](const EventLog& a, const EventLog& b) {
+                    if (a.before_halftime != b.before_halftime)
+                        return a.before_halftime > b.before_halftime; 
+                    return a.time < b.time;
+                });
                 for (const auto& e : sortedEvents) {
                     outFile << e.time << "-" << e.name << ":\n";
                     outFile << e.description << "\n";

@@ -69,7 +69,7 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol<StompF
         String passcode = message.GetHeader("passcode");
 
         if (login == null || passcode == null) {
-            sendError("Malformed CONNECT frame: missing login or passcode", message);
+            sendError("unvalid CONNECT frame: missing login or passcode", message);
             return;
         }
 
@@ -92,31 +92,14 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol<StompF
     private void handleSend(StompFrame message) {
         String destination = message.GetHeader("destination");
         if (destination == null || destination.isEmpty()) {
-            sendError("Malformed SEND frame: missing destination", message);
+            sendError("unvalid SEND frame: missing destination", message);
             return;
         }
-
-        // Logic from reference code: iterate through subscribers to send personalized MESSAGE frames
-        ConcurrentHashMap<Integer, Integer> subscribers = database.getSubscribers(destination);
-        
-        if (subscribers == null || !subscribers.containsKey(connectionId)) {
+        if (!connections.isSubscribed(connectionId, destination)) {
             sendError("User not subscribed to channel " + destination, message);
             return;
         }
-
-        // Send the message to all clients subscribed to this channel
-        for (Map.Entry<Integer, Integer> entry : subscribers.entrySet()) {
-            int targetId = entry.getKey();
-            String subscriptionId = Integer.toString(entry.getValue());
-
-            // Create a specific MESSAGE frame for each subscriber including their subscription ID
-            StompFrame messageToClient = new StompFrame("MESSAGE", new HashMap<>(), message.getBody());
-            messageToClient.addHeader("subscription", subscriptionId);
-            messageToClient.addHeader("destination", destination);
-            messageToClient.addHeader("message-id", "msg-" + UUID.randomUUID().toString());
-
-            connections.send(targetId, messageToClient);
-        }
+        connections.send(destination, message);
     }
 
     private void handleSubscribe(StompFrame message) {
@@ -124,7 +107,7 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol<StompF
         String subId = message.GetHeader("id");
 
         if (destination == null || subId == null) {
-            sendError("Malformed SUBSCRIBE frame: missing destination or id", message);
+            sendError("unvalid SUBSCRIBE frame: missing destination or id", message);
             return;
         }
 
@@ -139,7 +122,7 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol<StompF
     private void handleUnsubscribe(StompFrame message) {
         String subId = message.GetHeader("id");
         if (subId == null) {
-            sendError("Malformed UNSUBSCRIBE frame: missing id", message);
+            sendError("unvalid UNSUBSCRIBE frame: missing id", message);
             return;
         }
 

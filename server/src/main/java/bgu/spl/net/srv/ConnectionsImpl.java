@@ -31,16 +31,14 @@ public class ConnectionsImpl <T> implements Connections <T>{
         Map<Integer, String> subs = channelToSubscribers.get(channel);
         if (subs != null && msg instanceof StompFrame) {
             StompFrame originalFrame = (StompFrame) msg;
-
             for (Map.Entry<Integer, String> entry : subs.entrySet()) {
                 Integer connId = entry.getKey();
                 String subId = entry.getValue();
-                Map<String, String> messageHeaders = new HashMap<>();
-                messageHeaders.put("destination", channel);
-                messageHeaders.put("subscription", subId);
-                messageHeaders.put("message-id", String.valueOf(messageIdCounter.getAndIncrement()));
-                StompFrame messageFrame = new StompFrame("MESSAGE",messageHeaders,originalFrame.getBody());
-                send(connId, (T) messageFrame);
+                StompFrame personalized = new StompFrame("MESSAGE", new HashMap<>(), originalFrame.getBody());
+                personalized.getMap().putAll(originalFrame.getMap());
+                personalized.addHeader("subscription", subId);
+                personalized.addHeader("message-id", String.valueOf(messageIdCounter.getAndIncrement()));
+                send(connId, (T) personalized);
             }
 
         }

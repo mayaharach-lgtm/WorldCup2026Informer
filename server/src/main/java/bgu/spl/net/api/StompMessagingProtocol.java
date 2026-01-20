@@ -14,4 +14,11 @@ public interface StompMessagingProtocol<T>  {
      * @return true if the connection should be terminated
      */
     boolean shouldTerminate();
+
+    /**
+	 * Called to forcefully terminate the connection or handle cleanup when the connection is closed.
+	 * This method should release any resources associated with the connection,
+	 * such as unsubscribing the user from topics or removing them from the active users map.
+	 */
+	void terminateConnection();
 }

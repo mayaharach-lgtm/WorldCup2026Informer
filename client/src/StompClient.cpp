@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
 
         if (command == "login") {
             if (connected) {
-                std::cout << "The client is already logged in." << std::endl;
+                std::cout << "The client is already logged in, log out before trying again" << std::endl;
                 continue;
             }
 
@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
 
             handler = std::make_shared<ConnectionHandler>(host, port);
             if (!handler->connect()) {
-                std::cout << "Connection failed" << std::endl;
+                std::cout << "Could not connect to server" << std::endl;
                 handler.reset();
                 continue;
             }
@@ -149,10 +149,6 @@ int main(int argc, char *argv[]) {
             }
             safeDisconnect();
             std::cout << "Logged out." << std::endl;
-        }
-        else if (command == "exit") {
-            shouldTerminate = true;
-            safeDisconnect();
         }
         else {
             if (!connected || !handler) {

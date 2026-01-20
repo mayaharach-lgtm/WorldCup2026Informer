@@ -11,6 +11,7 @@ the methods below.
 import socket
 import sys
 import threading
+import sqlite3
 
 
 SERVER_NAME = "STOMP_PYTHON_SQL_SERVER"  # DO NOT CHANGE!
@@ -30,15 +31,57 @@ def recv_null_terminated(sock: socket.socket) -> str:
 
 
 def init_database():
-    pass
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA foreign_keys = ON;")
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    username TEXT PRIMARY KEY,
+                    password TEXT NOT NULL,
+                    registration_date DATETIME DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS login_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT NOT NULL,
+                    login_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    logout_time DATETIME,
+                    FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE
+                );
+            """)
+            
+            conn.commit()
+            print(f"[{SERVER_NAME}] Database initialized with ID in login_history.")
+    except sqlite3.Error as e:
+        print(f"[{SERVER_NAME}] DB Error: {e}")
+
 
 
 def execute_sql_command(sql_command: str) -> str:
-    return "done"
+    try :
+        with sqlite3.connect(DB_FILE) as conn:
+            cursur=conn.cursor()
+            cursur.execute(sql_command)
+            conn.commit()    
+            return "done"
+    except sqlite3.Error as e:
+        print(f"Error: {e}")
+    
 
 
 def execute_sql_query(sql_query: str) -> str:
-    return "done"
+    try :
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor=conn.cursor()
+            cursor.execute(sql_query)  
+            rows = cursor.fetchall()
+            return str(rows)  
+    except sqlite3.Error as e:
+        print(f"Error: {e}")
 
 
 def handle_client(client_socket: socket.socket, addr):

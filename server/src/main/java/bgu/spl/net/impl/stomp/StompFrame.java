@@ -27,6 +27,10 @@ public class StompFrame {
     public String GetHeader(String key){
         return this.headers.get(key);
     }
+
+    public void addHeader(String key, String value) {
+        this.headers.put(key, value);
+    }
     
     public String toStompString() {
     StringBuilder sb = new StringBuilder();

@@ -95,5 +95,50 @@ public class ConnectionsImpl <T> implements Connections <T>{
         Map<Integer, String> subs = channelToSubscribers.get(channel);
         return subs != null && subs.containsKey(connectionId);
     }
+
+    public enum LoginStatus { OK, NEW_USER, WRONG_PASSWORD, ALREADY_LOGGED_IN, MISSING_FIELDS }
+
+    public LoginStatus tryLogin(String username, String passcode, int connectionId) {
+        if (username == null || passcode == null) 
+            return LoginStatus.MISSING_FIELDS;
+        final LoginStatus[] res = new LoginStatus[] { LoginStatus.MISSING_FIELDS };
+        users.compute(username, (k, u) -> {
+            if (u == null) {
+                User nu = new User(username, passcode);
+                nu.setLogged(true);
+                nu.setConnectionId(connectionId);
+                res[0] = LoginStatus.NEW_USER;
+                return nu;
+            }
+
+            if (!u.getPassword().equals(passcode)) {
+                res[0] = LoginStatus.WRONG_PASSWORD;
+                return u;
+            }
+
+            if (u.isLogged()) {
+                res[0] = LoginStatus.ALREADY_LOGGED_IN;
+                return u;
+            }
+
+            u.setLogged(true);
+            u.setConnectionId(connectionId);
+            res[0] = LoginStatus.OK;
+            return u;
+        });
+
+        return res[0];
+    }
+
+    public void logout(String username, int connectionId) {
+    if (username == null) return;
+    users.computeIfPresent(username, (k, u) -> {
+        if (u.getConnectionId() == connectionId) {
+            u.setLogged(false);
+            u.setConnectionId(-1);
+        }
+        return u;
+    });
+}
     
 }   

@@ -17,6 +17,7 @@ import sqlite3
 SERVER_NAME = "STOMP_PYTHON_SQL_SERVER"  # DO NOT CHANGE!
 DB_FILE = "stomp_server.db"              # DO NOT CHANGE!
 
+_db_lock = threading.Lock()
 
 def recv_null_terminated(sock: socket.socket) -> str:
     data = b""
@@ -31,12 +32,12 @@ def recv_null_terminated(sock: socket.socket) -> str:
 
 
 def init_database():
-    try:
+    with _db_lock:
         with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
-            cursor.execute("PRAGMA foreign_keys = ON;")
+            cur = conn.cursor()
+            cur.execute("PRAGMA foreign_keys = ON;")
 
-            cursor.execute("""
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     username TEXT PRIMARY KEY,
                     password TEXT NOT NULL,
@@ -44,7 +45,7 @@ def init_database():
                 );
             """)
 
-            cursor.execute("""
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS login_history (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     username TEXT NOT NULL,
@@ -53,35 +54,46 @@ def init_database():
                     FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE
                 );
             """)
-            
-            conn.commit()
-            print(f"[{SERVER_NAME}] Database initialized with ID in login_history.")
-    except sqlite3.Error as e:
-        print(f"[{SERVER_NAME}] DB Error: {e}")
 
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS file_tracking (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT NOT NULL,
+                    filename TEXT NOT NULL,
+                    upload_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    game_channel TEXT,
+                    FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE
+                );
+            """)
+
+            conn.commit()
+    print(f"[{SERVER_NAME}] Database initialized.")
 
 
 def execute_sql_command(sql_command: str) -> str:
-    try :
-        with sqlite3.connect(DB_FILE) as conn:
-            cursur=conn.cursor()
-            cursur.execute(sql_command)
-            conn.commit()    
-            return "done"
-    except sqlite3.Error as e:
-        print(f"Error: {e}")
-    
+    with _db_lock:
+        try:
+            with sqlite3.connect(DB_FILE) as conn:
+                cur = conn.cursor()
+                cur.execute("PRAGMA foreign_keys = ON;")
+                cur.execute(sql_command)
+                conn.commit()
+                return "done"
+        except sqlite3.Error as e:
+            return f"ERROR {e}"
 
 
 def execute_sql_query(sql_query: str) -> str:
-    try :
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor=conn.cursor()
-            cursor.execute(sql_query)  
-            rows = cursor.fetchall()
-            return str(rows)  
-    except sqlite3.Error as e:
-        print(f"Error: {e}")
+    with _db_lock:
+        try:
+            with sqlite3.connect(DB_FILE) as conn:
+                cur = conn.cursor()
+                cur.execute("PRAGMA foreign_keys = ON;")
+                cur.execute(sql_query)
+                rows = cur.fetchall()
+                return "SUCCESS " + str(rows)
+        except sqlite3.Error as e:
+            return f"ERROR {e}"
 
 
 def handle_client(client_socket: socket.socket, addr):
@@ -92,11 +104,18 @@ def handle_client(client_socket: socket.socket, addr):
             message = recv_null_terminated(client_socket)
             if message == "":
                 break
-
+            
+            sql = message.strip()
             print(f"[{SERVER_NAME}] Received:")
-            print(message)
+            print(sql)
 
-            client_socket.sendall(b"done\0")
+            if sql.lower().startswith("select"):
+                response = execute_sql_query(sql)
+            else:
+                response = execute_sql_command(sql)
+
+            client_socket.sendall(response.encode("utf-8") + b"\0")
+
 
     except Exception as e:
         print(f"[{SERVER_NAME}] Error handling client {addr}: {e}")
@@ -109,6 +128,7 @@ def handle_client(client_socket: socket.socket, addr):
 
 
 def start_server(host="127.0.0.1", port=7778):
+    init_database()
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 

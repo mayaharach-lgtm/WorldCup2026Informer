@@ -19,9 +19,11 @@ public class Reactor<T> implements Server<T> {
     private final Supplier<MessageEncoderDecoder<T>> readerFactory;
     private final ActorThreadPool pool;
     private Selector selector;
-
     private Thread selectorThread;
-    private final ConcurrentLinkedQueue<Runnable> selectorTasks = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<Runnable> selectorTasks;
+    private int idCounter;
+    private final ConnectionsImpl<T> connections;
+
 
     public Reactor(
             int numThreads,
@@ -33,6 +35,9 @@ public class Reactor<T> implements Server<T> {
         this.port = port;
         this.protocolFactory = protocolFactory;
         this.readerFactory = readerFactory;
+        this.selectorTasks = new ConcurrentLinkedQueue<>();
+        this.idCounter=0;
+        this.connections=new ConnectionsImpl<>();
     }
 
     @Override
@@ -95,12 +100,15 @@ public class Reactor<T> implements Server<T> {
     private void handleAccept(ServerSocketChannel serverChan, Selector selector) throws IOException {
         SocketChannel clientChan = serverChan.accept();
         clientChan.configureBlocking(false);
+        int connectionId = idCounter++;
         StompMessagingProtocol<T> stompMessagingProtocol = protocolFactory.get();
+        stompMessagingProtocol.start(connectionId, connections);
         final NonBlockingConnectionHandler<T> handler = new NonBlockingConnectionHandler<T>(
                 readerFactory.get(),
                 stompMessagingProtocol,
                 clientChan,
                 this);
+        connections.addConnection(connectionId, handler);
         clientChan.register(selector, SelectionKey.OP_READ, handler);
     }
 

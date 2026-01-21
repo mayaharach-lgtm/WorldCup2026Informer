@@ -30,6 +30,8 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol<StompF
 
     @Override
     public void process(StompFrame message) {
+        //Debug print
+        System.out.println("[DEBUG] Received Frame from Connection " + connectionId + ":\n" + message.toStompString());
         String command = message.getCommand();
 
         // Security check: Only CONNECT is allowed if not logged in
@@ -62,32 +64,35 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol<StompF
         if (!shouldTerminate) {
             checkAndSendReceipt(message);
         }
+        if (shouldTerminate) {
+            terminateConnection();
+        }
     }
 
     private void handleConnect(StompFrame message) {
         String login = message.GetHeader("login");
         String passcode = message.GetHeader("passcode");
 
-        if (login == null || passcode == null) {
+        ConnectionsImpl.LoginStatus st = connections.tryLogin(login, passcode, connectionId);
+
+        if (st == ConnectionsImpl.LoginStatus.MISSING_FIELDS) {
             sendError("unvalid CONNECT frame: missing login or passcode", message);
-            return;
-        }
-
-        // Logic from reference code: Check user status in database/connections
-        User user = connections.getUser(login);
-
-        if (user == null) {
-            // New user registration
-            connections.addUser(login, passcode);
-            completeLogin(login);
-        } else if (!user.getPassword().equals(passcode)) {
+        } 
+        else if (st == ConnectionsImpl.LoginStatus.WRONG_PASSWORD) {
             sendError("Wrong password", message);
-        } else if (user.isLogged()) {
+        } 
+        else if (st == ConnectionsImpl.LoginStatus.ALREADY_LOGGED_IN) {
             sendError("User already logged in", message);
-        } else {
-            completeLogin(login);
+        } 
+        else {
+            this.loggedIn = true;
+            this.userName = login;
+            sendConnected();
         }
     }
+
+
+
 
     private void handleSend(StompFrame message) {
         String destination = message.GetHeader("destination");
@@ -136,48 +141,35 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol<StompF
     }
 
     private void handleDisconnect(StompFrame message) {
-        // Receipt must be sent BEFORE termination for DISCONNECT
         checkAndSendReceipt(message);
         shouldTerminate = true;
-        
-        // Log out logic
-        User user = connections.getUser(this.userName);
-        if (user != null) {
-            user.setLogged(false);
-        }
+        connections.logout(this.userName, this.connectionId);
         connections.disconnect(connectionId);
-    }
-
-    private void completeLogin(String login) {
-        this.loggedIn = true;
-        this.userName = login;
-        User user = connections.getUser(login);
-        user.setLogged(true);
-        user.setConnectionId(this.connectionId);
-
-        Map<String, String> headers = new HashMap<>();
-        headers.put("version", "1.2");
-        connections.send(connectionId, new StompFrame("CONNECTED", headers, ""));
     }
 
     private void sendError(String errorMsg, StompFrame originalFrame) {
         Map<String, String> headers = new HashMap<>();
         headers.put("message", errorMsg);
-        
+
         String receiptId = originalFrame.GetHeader("receipt");
         if (receiptId != null) {
             headers.put("receipt-id", receiptId);
         }
 
-        // Include original frame info in body for debugging (as seen in second code)
-        String body = "The error message: " + errorMsg + "\n\nOriginal frame:\n---\n" + originalFrame.toString() + "\n---";
-        
+        String body = "The error message: " + errorMsg + "\n\nOriginal frame:\n---\n"
+                + originalFrame.toStompString() + "\n---";
+
         connections.send(connectionId, new StompFrame("ERROR", headers, body));
-        
-        // Errors in STOMP usually result in immediate connection termination
-        this.shouldTerminate = true;
-        terminateConnection();
+        shouldTerminate = true;
+
+        new Thread(() -> {
+            try {
+                Thread.sleep(50); // allow write to reach client
+            } catch (InterruptedException ignored) {}
+            terminateConnection();
+        }).start();
     }
+
 
     @Override
     public void terminateConnection() {
@@ -198,5 +190,11 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol<StompF
             headers.put("receipt-id", receiptId);
             connections.send(connectionId, new StompFrame("RECEIPT", headers, ""));
         }
+    }
+
+    private void sendConnected() {
+        Map<String, String> headers = new HashMap<>();
+        headers.put("version", "1.2");
+        connections.send(connectionId, new StompFrame("CONNECTED", headers, ""));
     }
 }

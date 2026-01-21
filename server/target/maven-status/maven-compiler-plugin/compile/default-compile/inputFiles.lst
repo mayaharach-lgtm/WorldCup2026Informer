@@ -14,11 +14,9 @@
 /workspaces/SPL-Assignment3/server/src/main/java/bgu/spl/net/impl/newsfeed/NewsFeed.java
 /workspaces/SPL-Assignment3/server/src/main/java/bgu/spl/net/impl/stomp/StompFrame.java
 /workspaces/SPL-Assignment3/server/src/main/java/bgu/spl/net/impl/rci/RCIClient.java
-/workspaces/SPL-Assignment3/server/src/main/java/bgu/spl/net/impl/newsfeed/NewsFeedServerMain.java
 /workspaces/SPL-Assignment3/server/src/main/java/bgu/spl/net/srv/ConnectionsImpl.java
 /workspaces/SPL-Assignment3/server/src/main/java/bgu/spl/net/impl/stomp/StompMessageEncoderDecoder.java
 /workspaces/SPL-Assignment3/server/src/main/java/bgu/spl/net/srv/BaseServer.java
-/workspaces/SPL-Assignment3/server/src/main/java/bgu/spl/net/impl/echo/EchoServer.java
 /workspaces/SPL-Assignment3/server/src/main/java/bgu/spl/net/srv/Server.java
 /workspaces/SPL-Assignment3/server/src/main/java/bgu/spl/net/impl/newsfeed/FetchNewsCommand.java
 /workspaces/SPL-Assignment3/server/src/main/java/bgu/spl/net/impl/newsfeed/PublishNewsCommand.java

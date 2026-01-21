@@ -71,7 +71,7 @@ public:
         return "CONNECT\naccept-version:1.2\nhost:" + host + "\nlogin:" + user + "\npasscode:" + pass + "\n\n";
     }
 
-    std::string StompProtocol::createDisconnectFrame() {
+    std::string createDisconnectFrame() {
         std::string frame = "DISCONNECT\n";
         frame += "receipt:" + std::to_string(receiptCounter) + "\n";
         frame += "\n"; 

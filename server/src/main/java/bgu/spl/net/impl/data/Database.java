@@ -21,7 +21,7 @@ public class Database {
 		this.sqlHost = "127.0.0.1";
 		this.sqlPort = 7778;
 
-		//??
+	
 		games = new ConcurrentHashMap<>();
 	}
 

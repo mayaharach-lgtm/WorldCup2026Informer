@@ -2,9 +2,6 @@ package bgu.spl.net.impl.stomp;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-
 import bgu.spl.net.api.StompMessagingProtocol;
 import bgu.spl.net.impl.data.Database;
 import bgu.spl.net.srv.Connections;
@@ -72,22 +69,19 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol<StompF
         String login = message.GetHeader("login");
         String passcode = message.GetHeader("passcode");
 
-        ConnectionsImpl.LoginStatus st = connections.tryLogin(login, passcode, connectionId);
+        bgu.spl.net.impl.data.LoginStatus st = database.login(connectionId, login, passcode);
 
-        if (st == ConnectionsImpl.LoginStatus.MISSING_FIELDS) {
-            sendError("unvalid CONNECT frame: missing login or passcode", message);
-        } 
-        else if (st == ConnectionsImpl.LoginStatus.WRONG_PASSWORD) {
-            sendError("Wrong password", message);
-        } 
-        else if (st == ConnectionsImpl.LoginStatus.ALREADY_LOGGED_IN) {
-            sendError("User already logged in", message);
-        } 
-        else {
+        if (st == bgu.spl.net.impl.data.LoginStatus.ADDED_NEW_USER || st == bgu.spl.net.impl.data.LoginStatus.LOGGED_IN_SUCCESSFULLY) {
             this.loggedIn = true;
             this.userName = login;
             sendConnected();
-        }
+        } 
+        else if (st == bgu.spl.net.impl.data.LoginStatus.WRONG_PASSWORD) {
+            sendError("Wrong password", message);
+        } 
+        else if (st == bgu.spl.net.impl.data.LoginStatus.ALREADY_LOGGED_IN || st == bgu.spl.net.impl.data.LoginStatus.CLIENT_ALREADY_CONNECTED) {
+            sendError("User already logged in", message);
+        } 
     }
 
 
@@ -103,6 +97,17 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol<StompF
             sendError("User not subscribed to channel " + destination, message);
             return;
         }
+
+        // Check for file upload headers (optional implementation based on requirement to track files)
+        String filename = message.GetHeader("filename");
+        if (filename == null) {
+            filename = message.GetHeader("file");
+        }
+        
+        if (filename != null && !filename.isEmpty()) {
+            database.trackFileUpload(this.userName, filename, destination);
+        }
+
         connections.send(destination, message);
     }
 
@@ -151,8 +156,7 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol<StompF
     private void handleDisconnect(StompFrame message) {
         checkAndSendReceipt(message);
         shouldTerminate = true;
-        connections.logout(this.userName, this.connectionId);
-        connections.disconnect(connectionId);
+        // connection logout is handled in terminateConnection which calls database.logout
     }
 
     private void sendError(String errorMsg, StompFrame originalFrame) {

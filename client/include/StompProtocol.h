@@ -85,11 +85,15 @@ public:
         if (cmd == "join") {
             // SUBSCRIBE 
             std::string game; ss >> game;
-            int rid = receiptCounter++;
-            int sid = subCounter++;
-            channelToSubId[game] = sid;
-            receiptToSuccessMsg[rid] = "Joined channel " + game; 
-            frames.push_back("SUBSCRIBE\ndestination:/" + game + "\nid:" + std::to_string(sid) + "\nreceipt:" + std::to_string(rid) + "\n\n");
+            if (channelToSubId.count(game)) {
+                std::cout << "Already subscribed to channel " << game << std::endl;
+            } else {
+                int rid = receiptCounter++;
+                int sid = subCounter++;
+                channelToSubId[game] = sid;
+                receiptToSuccessMsg[rid] = "Joined channel " + game; 
+                frames.push_back("SUBSCRIBE\ndestination:/" + game + "\nid:" + std::to_string(sid) + "\nreceipt:" + std::to_string(rid) + "\n\n");
+            }
         }
         else if (cmd == "exit") {
             // UNSUBSCRIBE command 
@@ -104,9 +108,13 @@ public:
         else if (cmd == "report") {
             // SEND command for each event in the JSON file 
             std::string filePath; ss >> filePath;
-            names_and_events nne = parseEventsFile(filePath); 
-            for (const Event& e : nne.events) {
-                frames.push_back(createSendFrame(e, nne.team_a_name, nne.team_b_name));
+            try {
+                names_and_events nne = parseEventsFile(filePath); 
+                for (const Event& e : nne.events) {
+                    frames.push_back(createSendFrame(e, nne.team_a_name, nne.team_b_name));
+                }
+            } catch (...) {
+                std::cout << "Error parsing file: " << filePath << std::endl;
             }
         }
         else if (cmd == "logout") {
@@ -258,6 +266,12 @@ public:
                 }
                 if (line == "description :" || line == "description:") {
                     section = DESCRIPTION;
+                    continue;
+                }
+
+                if (section == DESCRIPTION) {
+                    if (!description.empty()) description += "\n";
+                    description += line;
                     continue;
                 }
 

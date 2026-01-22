@@ -60,32 +60,63 @@ public class Database {
 	 * @param sql SQL query string
 	 * @return Result string from SQL server
 	 */
-	private String executeSQL(String sql) {
-		try (Socket socket = new Socket()) {
-			// הגדרת טיימאאוט לחיבור (2 שניות) ולקריאה (3 שניות)
-			socket.connect(new java.net.InetSocketAddress(sqlHost, sqlPort), 2000);
-			socket.setSoTimeout(3000); 
+    private Socket sqlSocket;
+    private PrintWriter out;
+    private BufferedReader in;
 
-			try (PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-				BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
-				
-				out.println(sql + "\0");
-				out.flush();
-				
-				StringBuilder response = new StringBuilder();
-				int ch;
-				// קריאה עד לתו ה-Null או עד סגירת החיבור
-				while ((ch = in.read()) != -1 && ch != '\0') {
-					response.append((char) ch);
-				}
-				return response.toString();
-			}
-		} 
-		catch (Exception e) {
-			System.err.println("SQL Error: " + e.getMessage());
-			return "ERROR:" + e.getMessage();
-		}
-	}
+    /**
+     * Connect to SQL server if not connected
+     */
+    private void connect() {
+        try {
+            if (sqlSocket == null || sqlSocket.isClosed()) {
+                sqlSocket = new Socket(sqlHost, sqlPort); // Default system timeout
+                // We keep the socket open, so we don't set a short read timeout unless we want to handle "server hung" logic.
+                // For a persistent connection, infinite or long timeout is usually preferred, 
+                // but let's keep a reasonable one to detect failure.
+                sqlSocket.setSoTimeout(10000); 
+
+                out = new PrintWriter(sqlSocket.getOutputStream(), true);
+                in = new BufferedReader(new InputStreamReader(sqlSocket.getInputStream()));
+            }
+        } catch (Exception e) {
+            System.err.println("Database Connection Error: " + e.getMessage());
+            sqlSocket = null; // Ensure null so we try again next time
+        }
+    }
+
+    /**
+     * Execute SQL query and return result using persistent connection
+     * @param sql SQL query string
+     * @return Result string from SQL server
+     */
+    private synchronized String executeSQL(String sql) {
+        // Ensure connection execution is serialized because we share the socket
+        try {
+            connect();
+            if (sqlSocket == null || out == null || in == null) {
+                return "ERROR: Could not connect to SQL DB";
+            }
+
+            out.println(sql + "\0");
+            out.flush();
+            
+            StringBuilder response = new StringBuilder();
+            int ch;
+            // Read until null char or stream end
+            while ((ch = in.read()) != -1 && ch != '\0') {
+                response.append((char) ch);
+            }
+            return response.toString();
+        } 
+        catch (Exception e) {
+            System.err.println("SQL Error: " + e.getMessage());
+            // If error, force reconnection next time as state might be bad
+            try { if (sqlSocket != null) sqlSocket.close(); } catch(Exception ignored){}
+            sqlSocket = null;
+            return "ERROR:" + e.getMessage();
+        }
+    }
 
 	/**
 	 * Escape SQL special characters to prevent SQL injection

@@ -30,8 +30,7 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol<StompF
 
     @Override
     public void process(StompFrame message) {
-        //Debug print
-        System.out.println("[DEBUG] Received Frame from Connection " + connectionId + ":\n" + message.toStompString());
+
         String command = message.getCommand();
 
         // Security check: Only CONNECT is allowed if not logged in
@@ -117,11 +116,16 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol<StompF
         }
 
         // Register subscription in both database and local protocol map
-        database.subscribeToGame(destination, connectionId, Integer.parseInt(subId));
-        subIdToChannel.put(subId, destination);
-        
-        // Note: Connections implementation might also track this
-        connections.subscribe(connectionId, destination, subId);
+        try {
+            int id = Integer.parseInt(subId);
+            database.subscribeToGame(destination, connectionId, id);
+            subIdToChannel.put(subId, destination);
+            
+            // Note: Connections implementation might also track this
+            connections.subscribe(connectionId, destination, subId);
+        } catch (NumberFormatException e) {
+            sendError("Invalid subscription ID format", message);
+        }
     }
 
     private void handleUnsubscribe(StompFrame message) {
@@ -131,12 +135,16 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol<StompF
             return;
         }
 
-        String destination = subIdToChannel.remove(subId);
-        if (destination != null) {
-            database.unsubscribeFromGame(connectionId, Integer.parseInt(subId));
-            connections.unsubscribe(connectionId, destination);
-        } else {
-            sendError("Subscription ID not found", message);
+        try {
+            String destination = subIdToChannel.remove(subId);
+            if (destination != null) {
+                database.unsubscribeFromGame(connectionId, Integer.parseInt(subId));
+                connections.unsubscribe(connectionId, destination);
+            } else {
+                sendError("Subscription ID not found", message);
+            }
+        } catch (NumberFormatException e) {
+            sendError("Invalid subscription ID format", message);
         }
     }
 
@@ -161,13 +169,6 @@ public class StompMessagingProtocolimpl implements StompMessagingProtocol<StompF
 
         connections.send(connectionId, new StompFrame("ERROR", headers, body));
         shouldTerminate = true;
-
-        new Thread(() -> {
-            try {
-                Thread.sleep(50); // allow write to reach client
-            } catch (InterruptedException ignored) {}
-            terminateConnection();
-        }).start();
     }
 
 

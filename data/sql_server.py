@@ -91,7 +91,9 @@ def execute_sql_query(sql_query: str) -> str:
                 cur.execute("PRAGMA foreign_keys = ON;")
                 cur.execute(sql_query)
                 rows = cur.fetchall()
-                return "SUCCESS " + str(rows)
+                # Format as pipe-separated string for Java parsing
+                formatted_rows = "|".join([str(row) for row in rows])
+                return "SUCCESS |" + formatted_rows
         except sqlite3.Error as e:
             return f"ERROR {e}"
 

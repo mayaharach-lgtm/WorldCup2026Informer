@@ -20,8 +20,7 @@ void readTask(std::shared_ptr<ConnectionHandler> handler,
 
         // Blocking read (until '\0')
         if (handler && handler->getFrameAscii(frame, '\0')) {
-            //print debug 
-            std::cout << "\n[DEBUG] Received Frame from Server:\n" << frame << std::endl;
+
             // Guard shared protocol state
             std::lock_guard<std::mutex> lock(protocolMtx);
             protocol.processResponse(frame);

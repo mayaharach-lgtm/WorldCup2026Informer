@@ -68,18 +68,9 @@ public class ConnectionsImpl <T> implements Connections <T>{
 
     @Override
     public void subscribe(int connectionId,String channel, String subscriptionId){
-        if(channelToSubscribers.containsKey(channel)){
-            Map<Integer,String> mychannelsubs = channelToSubscribers.get(channel);
-            mychannelsubs.put(connectionId,subscriptionId);
-            System.out.println("DEBUG: Client " + connectionId + " subscribed to channel: [" + channel + "]");
-        
-        }
-        else{
-        Map<Integer, String> channelSubs=new ConcurrentHashMap<>();
-        channelSubs.put(connectionId, subscriptionId);
-        channelToSubscribers.put(channel,channelSubs);
-        System.out.println("DEBUG: Client " + connectionId + " subscribed to channel: [" + channel + "]");
-        }
+        channelToSubscribers.computeIfAbsent(channel, k -> new ConcurrentHashMap<>())
+                .put(connectionId, subscriptionId);
+
 
     }
 
